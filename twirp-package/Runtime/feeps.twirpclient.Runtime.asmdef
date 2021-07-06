@@ -1,0 +1,21 @@
+{
+    "name": "TwirpClient",
+    "rootNamespace": "Twirp",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [
+        "Android",
+        "iOS",
+        "LinuxStandalone64",
+        "WebGL",
+        "WindowsStandalone32",
+        "WindowsStandalone64"
+    ],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

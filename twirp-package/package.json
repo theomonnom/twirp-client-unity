@@ -1,0 +1,12 @@
+{
+  "name": "be.feeps.twirpunity",
+  "version": "0.0.1",
+  "displayName": "Twirp Client",
+  "description": "Twirp Client for UnityEngine",
+  "unity": "2021.3",
+  "author": {
+    "name": "Théo Monnom",
+    "email": "theo.monnom@outlook.com"
+  },
+  "type": "library"
+}
