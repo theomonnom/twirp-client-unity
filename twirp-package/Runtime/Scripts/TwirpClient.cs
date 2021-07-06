@@ -42,7 +42,7 @@ namespace Twirp
             this.serverPathPrefix = serverPathPrefix;
         }
 
-        internal TwirpRequestInstruction<T> MakeRequest<T>(string url, IMessage msg) where T : IMessage<T>, new()
+        protected TwirpRequestInstruction<T> MakeRequest<T>(string url, IMessage msg) where T : IMessage<T>, new()
         {
             var op = new TwirpRequestInstruction<T>();
 

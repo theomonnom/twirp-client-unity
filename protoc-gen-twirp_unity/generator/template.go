@@ -43,7 +43,7 @@ namespace Twirp {
 		}
 		{{range .Methods}}
 		public TwirpRequestInstruction<{{.Output}}> {{.Name}}({{.Input}} request){
-			return this.MakeRequest<{{.Output}}>("{{.ServiceURL}}/{{.Name}}", request);
+			return MakeRequest<{{.Output}}>("{{.ServiceURL}}/{{.Name}}", request);
 		}{{end}}
 	}{{end}}
 }
