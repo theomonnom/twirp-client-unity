@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/FeepsDev/protoc-gen-twirp_unity/generator"
-	"github.com/golang/protobuf/proto"
+	"github.com/FeepsDev/twirp-client-unity/protoc-gen-twirp_unity/generator"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
