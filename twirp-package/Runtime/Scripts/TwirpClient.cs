@@ -4,18 +4,16 @@ using UnityEngine.Networking;
 using System.Collections;
 using System.Text;
 using System.Collections.Generic;
-using Newtonsoft.Json;
+using System;
 
 namespace Twirp
 {
+    [Serializable]
     public class TwirpError
     {
-        [JsonProperty("code")]
-        public string Code;
-        [JsonProperty("msg")]
-        public string Message;
-        [JsonProperty("meta")]
-        public Dictionary<string, string> Meta = new Dictionary<string, string>();
+        public string code;
+        public string message;
+        public Dictionary<string, string> meta = new Dictionary<string, string>();
     }
 
     public class TwirpRequestInstruction<T> : CustomYieldInstruction
@@ -45,10 +43,14 @@ namespace Twirp
         protected TwirpRequestInstruction<T> MakeRequest<T>(string url, IMessage msg) where T : IMessage<T>, new()
         {
             var op = new TwirpRequestInstruction<T>();
+            var req = new UnityWebRequest(address + serverPathPrefix + '/' + url, UnityWebRequest.kHttpVerbPOST);
 
-            var req = UnityWebRequest.Post(address + serverPathPrefix + '/' + url, Encoding.Default.GetString(msg.ToByteArray()));
-            req.timeout = timeout;
-            req.SetRequestHeader("Content-Type", "application/protobuf");
+            var upload = new UploadHandlerRaw(msg.ToByteArray());
+            upload.contentType = "application/protobuf";
+            req.uploadHandler = upload;
+
+            var download = new DownloadHandlerBuffer();
+            req.downloadHandler = download;
 
             mono.StartCoroutine(HandleRequest<T>(req, op));
             return op;
@@ -62,8 +64,8 @@ namespace Twirp
             if (req.result != UnityWebRequest.Result.Success)
             {
                 var e = new TwirpError();
-                e.Code = "internal";
-                e.Message = req.error;
+                e.code = "internal";
+                e.message = req.error;
 
                 op.IsError = true;
                 op.Error = e;
@@ -78,7 +80,7 @@ namespace Twirp
                 else
                 {
                     op.IsError = true;
-                    op.Error = JsonConvert.DeserializeObject<TwirpError>(req.downloadHandler.text);
+                    op.Error = JsonUtility.FromJson<TwirpError>(req.downloadHandler.text);
                 }
             }
         }
