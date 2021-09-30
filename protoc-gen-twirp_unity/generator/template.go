@@ -38,7 +38,7 @@ namespace Twirp {
 	{{range .Services}}
 	public class {{.Name}}Client : TwirpClient {
 
-		public {{.Name}}Client(MonoBehaviour mono, string url, int timeout, string serverPathPrefix="twirp") : base(mono, url, timeout, serverPathPrefix) {
+		public {{.Name}}Client(MonoBehaviour mono, string url, int timeout, string serverPathPrefix="twirp", params TwirpMiddleware[] middlewares) : base(mono, url, timeout, serverPathPrefix, middlewares) {
 
 		}
 		{{range .Methods}}

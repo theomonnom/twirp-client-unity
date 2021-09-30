@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/FeepsDev/twirp-client-unity/protoc-gen-twirp_unity/generator"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"github.com/ifl-studio/twirp-client-unity/protoc-gen-twirp_unity/generator"
 	"google.golang.org/protobuf/proto"
 )
 

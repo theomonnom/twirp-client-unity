@@ -1,4 +1,4 @@
-module github.com/FeepsDev/twirp-client-unity/protoc-gen-twirp_unity
+module github.com/ifl-studio/twirp-client-unity/protoc-gen-twirp_unity
 
 go 1.16
 
