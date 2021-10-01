@@ -38,12 +38,12 @@ namespace Twirp {
 	{{range .Services}}
 	public class {{.Name}}Client : TwirpClient {
 
-		public {{.Name}}Client(MonoBehaviour mono, string url, int timeout, string serverPathPrefix="twirp", params TwirpMiddleware[] middlewares) : base(mono, url, timeout, serverPathPrefix, middlewares) {
+		public {{.Name}}Client(MonoBehaviour mono, string url, int timeout, string serverPathPrefix="twirp", TwirpHook hook=null) : base(mono, url, timeout, serverPathPrefix, hook) {
 
 		}
 		{{range .Methods}}
 		public TwirpRequestInstruction<{{.Output}}> {{.Name}}({{.Input}} request){
-			return MakeRequest<{{.Output}}>("{{.ServiceURL}}/{{.Name}}", request);
+			return MakeRequest<{{.Input}}, {{.Output}}>("{{.ServiceURL}}/{{.Name}}", request);
 		}{{end}}
 	}{{end}}
 }

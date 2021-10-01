@@ -7,50 +7,34 @@ using System;
 
 namespace Twirp
 {
-    public class ErrorCode
+    public class TwirpErrorCode
     {
-        public static readonly ErrorCode CANCELED = new ErrorCode("canceled", 408);
-        public static readonly ErrorCode UNKNOWN = new ErrorCode("unknown", 500);
-        public static readonly ErrorCode INVALID_ARGUMENT = new ErrorCode("invalid_argument", 400);
-        public static readonly ErrorCode MALFORMED = new ErrorCode("malformed", 400);
-        public static readonly ErrorCode DEADLINE_EXCEEDED = new ErrorCode("deadline_exceeded", 408);
-        public static readonly ErrorCode NOT_FOUND = new ErrorCode("not_found", 404);
-        public static readonly ErrorCode BAD_ROUTE = new ErrorCode("bad_route", 404);
-        public static readonly ErrorCode ALREADY_EXISTS = new ErrorCode("already_exists", 409);
-        public static readonly ErrorCode PERMISSION_DENIED = new ErrorCode("permission_denied", 403);
-        public static readonly ErrorCode UNAUTHENTICATED = new ErrorCode("unauthenticated", 401);
-        public static readonly ErrorCode RESOURCE_EXHAUSTED = new ErrorCode("resource_exhausted", 429);
-        public static readonly ErrorCode FAILED_PRECONDITION = new ErrorCode("failed_precondition", 412);
-        public static readonly ErrorCode ABORTED = new ErrorCode("aborted", 409);
-        public static readonly ErrorCode OUT_OF_RANGE = new ErrorCode("out_of_range", 400);
-        public static readonly ErrorCode UNIMPLEMENTED = new ErrorCode("unimplemented", 501);
-        public static readonly ErrorCode INTERNAL = new ErrorCode("internal", 500);
-        public static readonly ErrorCode UNAVAILABLE = new ErrorCode("unavailable", 503);
-        public static readonly ErrorCode DATALOSS = new ErrorCode("dataloss", 500);
+        public static readonly TwirpErrorCode CANCELED = new TwirpErrorCode("canceled", 408);
+        public static readonly TwirpErrorCode UNKNOWN = new TwirpErrorCode("unknown", 500);
+        public static readonly TwirpErrorCode INVALID_ARGUMENT = new TwirpErrorCode("invalid_argument", 400);
+        public static readonly TwirpErrorCode MALFORMED = new TwirpErrorCode("malformed", 400);
+        public static readonly TwirpErrorCode DEADLINE_EXCEEDED = new TwirpErrorCode("deadline_exceeded", 408);
+        public static readonly TwirpErrorCode NOT_FOUND = new TwirpErrorCode("not_found", 404);
+        public static readonly TwirpErrorCode BAD_ROUTE = new TwirpErrorCode("bad_route", 404);
+        public static readonly TwirpErrorCode ALREADY_EXISTS = new TwirpErrorCode("already_exists", 409);
+        public static readonly TwirpErrorCode PERMISSION_DENIED = new TwirpErrorCode("permission_denied", 403);
+        public static readonly TwirpErrorCode UNAUTHENTICATED = new TwirpErrorCode("unauthenticated", 401);
+        public static readonly TwirpErrorCode RESOURCE_EXHAUSTED = new TwirpErrorCode("resource_exhausted", 429);
+        public static readonly TwirpErrorCode FAILED_PRECONDITION = new TwirpErrorCode("failed_precondition", 412);
+        public static readonly TwirpErrorCode ABORTED = new TwirpErrorCode("aborted", 409);
+        public static readonly TwirpErrorCode OUT_OF_RANGE = new TwirpErrorCode("out_of_range", 400);
+        public static readonly TwirpErrorCode UNIMPLEMENTED = new TwirpErrorCode("unimplemented", 501);
+        public static readonly TwirpErrorCode INTERNAL = new TwirpErrorCode("internal", 500);
+        public static readonly TwirpErrorCode UNAVAILABLE = new TwirpErrorCode("unavailable", 503);
+        public static readonly TwirpErrorCode DATALOSS = new TwirpErrorCode("dataloss", 500);
 
         public readonly string Code;
         public readonly int HttpStatus;
 
-        public ErrorCode(string code, int httpStatus)
+        public TwirpErrorCode(string code, int httpStatus)
         {
             Code = code;
             HttpStatus = httpStatus;
-        }
-
-        public override int GetHashCode()
-        {
-            return Code.GetHashCode();
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (GetType() == obj.GetType())
-                return Code == (obj as ErrorCode).Code;
-
-            if (obj is string)
-                return Code == (obj as string);
-
-            return base.Equals(obj);
         }
     }
 
@@ -71,28 +55,32 @@ namespace Twirp
         public override bool keepWaiting => !IsDone;
     }
 
-    public delegate void TwirpMiddleware(UnityWebRequest req, IMessage msg);
+    public abstract class TwirpHook
+    {
+        public abstract IEnumerator RequestStarted<I>(TwirpClient client, UnityWebRequest req, I msg) where I : IMessage<I>;
+        public abstract IEnumerator RequestFinished<I, O>(TwirpClient client, UnityWebRequest req, I msg, TwirpRequestInstruction<O> op) where I : IMessage<I> where O : IMessage<O>, new();
+    }
 
     public class TwirpClient
     {
         private MonoBehaviour mono;
         private string address;
         private int timeout;
-        private TwirpMiddleware[] middlewares;
         protected string serverPathPrefix;
+        private TwirpHook hook;
 
-        public TwirpClient(MonoBehaviour mono, string address, int timeout, string serverPathPrefix, params TwirpMiddleware[] middlewares)
+        public TwirpClient(MonoBehaviour mono, string address, int timeout, string serverPathPrefix, TwirpHook hook)
         {
             this.mono = mono;
             this.address = address;
             this.timeout = timeout;
             this.serverPathPrefix = serverPathPrefix;
-            this.middlewares = middlewares;
+            this.hook = hook;
         }
 
-        protected TwirpRequestInstruction<T> MakeRequest<T>(string url, IMessage msg) where T : IMessage<T>, new()
+        protected TwirpRequestInstruction<O> MakeRequest<I, O>(string url, I msg) where I : IMessage<I> where O : IMessage<O>, new()
         {
-            var op = new TwirpRequestInstruction<T>();
+            var op = new TwirpRequestInstruction<O>();
             var req = new UnityWebRequest(address + serverPathPrefix + '/' + url, UnityWebRequest.kHttpVerbPOST);
             req.timeout = timeout;
 
@@ -103,34 +91,30 @@ namespace Twirp
             var download = new DownloadHandlerBuffer();
             req.downloadHandler = download;
 
-            foreach(var m in middlewares)
-            {
-                m(req, msg);
-            }
-
-            mono.StartCoroutine(HandleRequest<T>(req, op));
+            mono.StartCoroutine(HandleRequest(req, msg, op));
             return op;
         }
 
-        private IEnumerator HandleRequest<T>(UnityWebRequest req, TwirpRequestInstruction<T> op) where T : IMessage<T>, new()
+        public IEnumerator HandleRequest<I, O>(UnityWebRequest req, I msg, TwirpRequestInstruction<O> op) where I : IMessage<I> where O : IMessage<O>, new()
         {
+            yield return hook?.RequestStarted(this, req, msg);
             yield return req.SendWebRequest();
             op.IsDone = true;
 
-            if (req.result != UnityWebRequest.Result.Success)
+            /*if (req.result != UnityWebRequest.Result.Success)
             {
                 var e = new TwirpError();
-                e.code = ErrorCode.INTERNAL.Code;
+                e.code = TwirpErrorCode.INTERNAL.Code;
                 e.message = req.error;
 
                 op.IsError = true;
                 op.Error = e;
             }
             else
-            {
+            {*/
                 if (req.responseCode == 200)
                 {
-                    var parser = new MessageParser<T>(() => new T());
+                    var parser = new MessageParser<O>(() => new O());
                     op.Resp = parser.ParseFrom(req.downloadHandler.data);
                 }
                 else
@@ -138,7 +122,9 @@ namespace Twirp
                     op.IsError = true;
                     op.Error = JsonUtility.FromJson<TwirpError>(req.downloadHandler.text);
                 }
-            }
+            //}
+
+            yield return hook?.RequestFinished(this, req, msg, op);
         }
     }
 }
