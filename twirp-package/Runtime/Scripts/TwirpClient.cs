@@ -48,17 +48,17 @@ namespace Twirp
 
     public class TwirpRequestInstruction<T> : CustomYieldInstruction
     {
-        public bool IsDone { get; internal set; }
-        public bool IsError { get; internal set; }
-        public T Resp { get; internal set; }
-        public TwirpError Error { get; internal set; }
+        public bool IsDone;
+        public bool IsError;
+        public T Resp;
+        public TwirpError Error;
         public override bool keepWaiting => !IsDone;
     }
 
     public abstract class TwirpHook
     {
-        public abstract IEnumerator RequestStarted<I>(TwirpClient client, UnityWebRequest req, I msg) where I : IMessage<I>;
-        public abstract IEnumerator RequestFinished<I, O>(TwirpClient client, UnityWebRequest req, I msg, TwirpRequestInstruction<O> op) where I : IMessage<I> where O : IMessage<O>, new();
+        public abstract IEnumerator RequestStarted<I>(TwirpClient client, string path, UnityWebRequest req, I msg) where I : IMessage<I>;
+        public abstract IEnumerator RequestFinished<I, O>(TwirpClient client, string path, UnityWebRequest req, I msg, TwirpRequestInstruction<O> op) where I : IMessage<I> where O : IMessage<O>, new();
     }
 
     public class TwirpClient
@@ -78,10 +78,16 @@ namespace Twirp
             this.hook = hook;
         }
 
-        protected TwirpRequestInstruction<O> MakeRequest<I, O>(string url, I msg) where I : IMessage<I> where O : IMessage<O>, new()
+        public TwirpRequestInstruction<O> MakeRequest<I, O>(string path, I msg) where I : IMessage<I> where O : IMessage<O>, new()
         {
             var op = new TwirpRequestInstruction<O>();
-            var req = new UnityWebRequest(address + serverPathPrefix + '/' + url, UnityWebRequest.kHttpVerbPOST);
+            mono.StartCoroutine(HandleRequest(path, msg, op));
+            return op;
+        }
+
+        private IEnumerator HandleRequest<I, O>(string path, I msg, TwirpRequestInstruction<O> op) where I : IMessage<I> where O : IMessage<O>, new()
+        {
+            using var req = new UnityWebRequest(address + serverPathPrefix + '/' + path, UnityWebRequest.kHttpVerbPOST);
             req.timeout = timeout;
 
             var upload = new UploadHandlerRaw(msg.ToByteArray());
@@ -91,40 +97,32 @@ namespace Twirp
             var download = new DownloadHandlerBuffer();
             req.downloadHandler = download;
 
-            mono.StartCoroutine(HandleRequest(req, msg, op));
-            return op;
-        }
-
-        public IEnumerator HandleRequest<I, O>(UnityWebRequest req, I msg, TwirpRequestInstruction<O> op) where I : IMessage<I> where O : IMessage<O>, new()
-        {
-            yield return hook?.RequestStarted(this, req, msg);
+            yield return hook?.RequestStarted(this, path, req, msg);
             yield return req.SendWebRequest();
             op.IsDone = true;
 
-            /*if (req.result != UnityWebRequest.Result.Success)
+            if (req.responseCode == 200)
             {
-                var e = new TwirpError();
-                e.code = TwirpErrorCode.INTERNAL.Code;
-                e.message = req.error;
-
-                op.IsError = true;
-                op.Error = e;
+                var parser = new MessageParser<O>(() => new O());
+                op.Resp = parser.ParseFrom(req.downloadHandler.data);
             }
             else
-            {*/
-                if (req.responseCode == 200)
+            {
+                op.IsError = true;
+                try
                 {
-                    var parser = new MessageParser<O>(() => new O());
-                    op.Resp = parser.ParseFrom(req.downloadHandler.data);
-                }
-                else
-                {
-                    op.IsError = true;
                     op.Error = JsonUtility.FromJson<TwirpError>(req.downloadHandler.text);
                 }
-            //}
+                catch
+                {
+                    var e = new TwirpError();
+                    e.code = TwirpErrorCode.INTERNAL.Code;
+                    e.message = req.error + ": " + req.downloadHandler.text;
+                    op.Error = e;
+                }
+            }
 
-            yield return hook?.RequestFinished(this, req, msg, op);
+            yield return hook?.RequestFinished(this, path, req, msg, op);
         }
     }
 }
