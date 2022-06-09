@@ -1,6 +1,6 @@
 {
   "name": "be.feeps.twirpunity",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "displayName": "Twirp Client",
   "description": "Twirp Client for UnityEngine",
   "unity": "2021.3",
